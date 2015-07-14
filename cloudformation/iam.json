@@ -1,0 +1,159 @@
+{
+    "Description": "AWS CloudFormation Template: IAM Roles for https://github.com/shawnsi/aws-codedeploy-serf.",
+    "Mappings": {
+        "Region2Principal": {
+            "ap-northeast-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "ap-southeast-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "ap-southeast-2": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "cn-north-1": {
+                "EC2Principal": "ec2.amazonaws.com.cn",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com.cn"
+            },
+            "eu-central-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "eu-west-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "sa-east-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "us-east-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "us-west-1": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            },
+            "us-west-2": {
+                "EC2Principal": "ec2.amazonaws.com",
+                "OpsWorksPrincipal": "opsworks.amazonaws.com"
+            }
+        }
+    },
+    "Parameters": {
+        "SerfEncryptKey": {
+            "Description": "Base64 encoded encryption key for Serf cluster.",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "CodedeployS3Policy": {
+            "Properties": {
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": [
+                                "*"
+                            ]
+                        }
+                    ]
+                },
+                "PolicyName": "CodedeployS3Policy",
+                "Roles": [
+                    {
+                        "Ref": "SerfInstanceRole"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::Policy"
+        },
+        "CodedeployServicePolicy": {
+            "Properties": {
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "s3:Get*",
+                                "s3:List*"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": [
+                                "*"
+                            ]
+                        }
+                    ]
+                },
+                "PolicyName": "CodedeployServiceRole",
+                "Roles": [
+                    {
+                        "Ref": "SerfInstanceRole"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::Policy"
+        },
+        "SerfEC2Policy": {
+            "Properties": {
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "ec2:Describe*",
+                                "autoscaling:Describe*"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": [
+                                "*"
+                            ]
+                        }
+                    ]
+                },
+                "PolicyName": "SerfEC2Policy",
+                "Roles": [
+                    {
+                        "Ref": "SerfInstanceRole"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::Policy"
+        },
+        "SerfInstanceRole": {
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "sts:AssumeRole"
+                            ],
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    {
+                                        "Fn::FindInMap": [
+                                            "Region2Principal",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "EC2Principal"
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "Path": "/"
+            },
+            "Type": "AWS::IAM::Role"
+        }
+    }
+}
