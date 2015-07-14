@@ -1,0 +1,21 @@
+---
+- hosts: localhost
+  tasks:
+
+  - name: Download serf archive
+    get_url: url=https://dl.bintray.com/mitchellh/serf/0.6.4_linux_amd64.zip dest=/tmp/serf.zip
+
+  - name: Install serf
+    unarchive: copy=no src=/tmp/serf.zip dest=/usr/local/bin
+
+  - name: Create serf configuration directory
+    file: state=directory path=/etc/serf mode=0700
+
+  - name: Install serf init script
+    get_url: url=https://raw.githubusercontent.com/hashicorp/serf/master/ops-misc/serf.sysv.init dest=/etc/init.d/serf mode=0775
+
+  - name: Configure serf peers
+    shell: python serf_peers.py > /etc/serf/peers.json creates=/etc/serf/peers.json
+
+  - name: Start serf
+    service: name=serf state=restarted
