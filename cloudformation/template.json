@@ -44,7 +44,31 @@
             }
         }
     },
+    "Outputs": {
+        "LaunchConfiguration": {
+            "Description": "Serf launch configuration for use in autoscaling groups",
+            "Value": {
+                "Ref": "LaunchConfiguration"
+            }
+        }
+    },
     "Parameters": {
+        "AmiId": {
+            "Description": "AMI for Serf instances",
+            "Type": "String"
+        },
+        "KeyName": {
+            "AllowedPattern": "[ -~]*",
+            "ConstraintDescription": "can contain only ASCII characters.",
+            "Description": "Name of an existing EC2 KeyPair to enable SSH access",
+            "MaxLength": "255",
+            "MinLength": "1",
+            "Type": "String"
+        },
+        "SecurityGroup": {
+            "Description": "Security group for Serf instances.",
+            "Type": "String"
+        },
         "SerfEncryptKey": {
             "Description": "Base64 encoded encryption key for Serf cluster.",
             "Type": "String"
@@ -76,30 +100,57 @@
             },
             "Type": "AWS::IAM::Policy"
         },
-        "CodedeployServicePolicy": {
+        "LaunchConfiguration": {
             "Properties": {
-                "PolicyDocument": {
-                    "Statement": [
-                        {
-                            "Action": [
-                                "s3:Get*",
-                                "s3:List*"
-                            ],
-                            "Effect": "Allow",
-                            "Resource": [
-                                "*"
-                            ]
-                        }
-                    ]
+                "IamInstanceProfile": {
+                    "Ref": "SerfInstanceProfile"
                 },
-                "PolicyName": "CodedeployServiceRole",
-                "Roles": [
+                "ImageId": {
+                    "Ref": "AmiId"
+                },
+                "InstanceType": "m3.medium",
+                "KeyName": {
+                    "Ref": "KeyName"
+                },
+                "SecurityGroups": [
                     {
-                        "Ref": "SerfInstanceRole"
+                        "Ref": "SecurityGroup"
                     }
-                ]
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "yum -y update\n",
+                                "yum install -y ruby\n",
+                                "yum install -y aws-cli\n",
+                                "cd /home/ec2-user\n",
+                                "aws s3 cp s3://aws-codedeploy-",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "/latest/install . --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n",
+                                "chmod +x ./install\n",
+                                "./install auto\n",
+                                "# Setup Serf Encryption Key\n",
+                                "mkdir -p /etc/serf\n",
+                                "echo '{\"encrypt_key\": \"",
+                                {
+                                    "Ref": "SerfEncryptKey"
+                                },
+                                "\"}' > /etc/serf/key.json\n"
+                            ]
+                        ]
+                    }
+                }
             },
-            "Type": "AWS::IAM::Policy"
+            "Type": "AWS::AutoScaling::LaunchConfiguration"
         },
         "SerfEC2Policy": {
             "Properties": {
@@ -125,6 +176,17 @@
                 ]
             },
             "Type": "AWS::IAM::Policy"
+        },
+        "SerfInstanceProfile": {
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "SerfInstanceRole"
+                    }
+                ]
+            },
+            "Type": "AWS::IAM::InstanceProfile"
         },
         "SerfInstanceRole": {
             "Properties": {

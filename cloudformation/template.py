@@ -2,8 +2,12 @@
 # Converted from IAM_Users_Groups_and_Policies.template located at:
 # http://aws.amazon.com/cloudformation/aws-cloudformation-templates/
 
-from troposphere import FindInMap, Parameter, Ref, Template
-from troposphere.iam import PolicyType, Role
+from troposphere import (
+    Base64, FindInMap, Join, Output, Parameter, Ref, Template
+)
+
+from troposphere.autoscaling import LaunchConfiguration
+from troposphere.iam import InstanceProfile, PolicyType, Role
 
 from awacs.aws import Allow, Policy, Principal, Statement
 from awacs.sts import AssumeRole
@@ -13,10 +17,32 @@ t = Template()
 t.add_description("AWS CloudFormation Template: IAM Roles for "
                   "https://github.com/shawnsi/aws-codedeploy-serf.")
 
-encrypt_key = t.add_parameter(Parameter(
+SerfEncryptKey = t.add_parameter(Parameter(
     "SerfEncryptKey",
     Description="Base64 encoded encryption key for Serf cluster.",
     Type="String"
+))
+
+AmiId = t.add_parameter(Parameter(
+    "AmiId",
+    Type="String",
+    Description="AMI for Serf instances"
+))
+
+KeyName = t.add_parameter(Parameter(
+    "KeyName",
+    Type="String",
+    Description="Name of an existing EC2 KeyPair to enable SSH access",
+    MinLength="1",
+    AllowedPattern="[\x20-\x7E]*",
+    MaxLength="255",
+    ConstraintDescription="can contain only ASCII characters.",
+))
+
+SecurityGroup = t.add_parameter(Parameter(
+    "SecurityGroup",
+    Type="String",
+    Description="Security group for Serf instances.",
 ))
 
 t.add_mapping("Region2Principal", {
@@ -73,26 +99,6 @@ t.add_resource(Role(
 ))
 
 t.add_resource(PolicyType(
-    "CodedeployServicePolicy",
-    PolicyName="CodedeployServiceRole",
-    PolicyDocument={
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Action": [
-                    "s3:Get*",
-                    "s3:List*"
-                ],
-                "Resource": [
-                    "*",
-                ]
-            }
-        ]
-    },
-    Roles=[Ref("SerfInstanceRole")]
-))
-
-t.add_resource(PolicyType(
     "CodedeployS3Policy",
     PolicyName="CodedeployS3Policy",
     PolicyDocument={
@@ -131,6 +137,45 @@ t.add_resource(PolicyType(
     },
     Roles=[Ref("SerfInstanceRole")]
 ))
+
+t.add_resource(InstanceProfile(
+    "SerfInstanceProfile",
+    Path="/",
+    Roles=[Ref("SerfInstanceRole")]
+))
+
+LaunchConfiguration = t.add_resource(LaunchConfiguration(
+    "LaunchConfiguration",
+    UserData=Base64(Join('', [
+        "#!/bin/bash\n",
+        "yum -y update\n",
+        "yum install -y ruby\n",
+        "yum install -y aws-cli\n",
+        "cd /home/ec2-user\n",
+        "aws s3 cp s3://aws-codedeploy-", Ref("AWS::Region"),
+        "/latest/install . --region ", Ref("AWS::Region"), "\n",
+        "chmod +x ./install\n",
+        "./install auto\n",
+
+        "# Setup Serf Encryption Key\n",
+        "mkdir -p /etc/serf\n",
+        "echo '{\"encrypt_key\": \"", Ref("SerfEncryptKey"),
+        "\"}' > /etc/serf/key.json\n",
+    ])),
+    IamInstanceProfile=Ref("SerfInstanceProfile"),
+    ImageId=Ref(AmiId),
+    KeyName=Ref(KeyName),
+    SecurityGroups=[Ref(SecurityGroup)],
+    InstanceType="m3.medium",
+))
+
+t.add_output([
+    Output(
+        "LaunchConfiguration",
+        Description="Serf launch configuration for use in autoscaling groups",
+        Value=Ref(LaunchConfiguration)
+    )
+])
 
 print(t.to_json())
 
