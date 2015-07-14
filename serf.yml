@@ -15,7 +15,7 @@
     get_url: url=https://raw.githubusercontent.com/hashicorp/serf/master/ops-misc/serf.sysv.init dest=/etc/init.d/serf mode=0775
 
   - name: Configure serf peers
-    shell: python serf_peers.py > /etc/serf/peers.json creates=/etc/serf/peers.json
+    shell: python scripts/serf_peers.py > /etc/serf/peers.json creates=/etc/serf/peers.json
 
   - name: Start serf
     service: name=serf state=restarted
