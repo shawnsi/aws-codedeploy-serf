@@ -5,4 +5,4 @@
 . $(dirname $0)/common_variables.sh
 
 cd $DESTINATION_PATH
-ansible-playbook -i hosts serf.yml --connection=local
+ansible-playbook -i hosts playbook.yml --connection=local
